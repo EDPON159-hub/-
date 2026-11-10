@@ -1,0 +1,571 @@
+
+-- ЧАСТЬ 1. Создание структуры БД "Магазин запчастей"
+
+-- 1. Создание бд
+CREATE DATABASE IF NOT EXISTS AutoPartsStore;
+USE AutoPartsStore;
+
+-- 2. Создание таблиц и связей
+
+-- Таблица countries (Страны)
+CREATE TABLE countries (
+    country_id VARCHAR(10) PRIMARY KEY,
+    country_name VARCHAR(100) NOT NULL
+);
+
+-- Таблица categories (Категории)
+CREATE TABLE categories (
+    category_id VARCHAR(10) PRIMARY KEY,
+    category_name VARCHAR(100) NOT NULL
+);
+
+-- Таблица appliance_types (Тип техники)
+CREATE TABLE appliance_types (
+    type_id VARCHAR(10) PRIMARY KEY,
+    type_name VARCHAR(100) NOT NULL
+);
+
+-- Таблица part_names (Названия запчастей)
+CREATE TABLE part_names (
+    part_name_id VARCHAR(10) PRIMARY KEY,
+    part_name VARCHAR(200) NOT NULL,
+    category_id VARCHAR(10) NOT NULL,
+    FOREIGN KEY (category_id) REFERENCES categories(category_id) ON DELETE CASCADE
+);
+
+-- Таблица shops (Магазины) 
+CREATE TABLE shops (
+    shop_id VARCHAR(20) PRIMARY KEY,
+    shop_name VARCHAR(150) NOT NULL,
+    address VARCHAR(250) NOT NULL,
+    manager VARCHAR(20),
+    open_date DATE NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'Работает'
+);
+
+-- Таблица employees (Сотрудники)
+CREATE TABLE employees (
+    employee_id VARCHAR(20) PRIMARY KEY,
+    full_name VARCHAR(150) NOT NULL,
+    position VARCHAR(100) NOT NULL,
+    shop_id VARCHAR(20) NOT NULL,
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    hire_date DATE NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'Работает',
+    FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE
+);
+
+
+ALTER TABLE shops
+ADD FOREIGN KEY (manager) REFERENCES employees(employee_id) ON DELETE SET NULL;
+
+-- Таблица customers (Клиенты)
+CREATE TABLE customers (
+    customer_id VARCHAR(20) PRIMARY KEY,
+    customer_name VARCHAR(200) NOT NULL,
+    inn VARCHAR(20),
+    contact_person VARCHAR(150),
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    address VARCHAR(250),
+    status VARCHAR(50) NOT NULL DEFAULT 'Активный'
+);
+
+-- Таблица spare_parts (Запчасти)
+CREATE TABLE spare_parts (
+    part_id VARCHAR(20) PRIMARY KEY,
+    part_name_id VARCHAR(10) NOT NULL,
+    type_id VARCHAR(10) NOT NULL,
+    characteristic VARCHAR(250),
+    qty_per_package INT NOT NULL DEFAULT 1,
+    country_id VARCHAR(10) NOT NULL,
+    base_price DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (part_name_id) REFERENCES part_names(part_name_id) ON DELETE CASCADE,
+    FOREIGN KEY (type_id) REFERENCES appliance_types(type_id) ON DELETE CASCADE,
+    FOREIGN KEY (country_id) REFERENCES countries(country_id) ON DELETE CASCADE
+);
+
+-- Таблица orders (Заказы)
+CREATE TABLE orders (
+    order_id INT PRIMARY KEY,
+    shop_id VARCHAR(20) NOT NULL,
+    customer_id VARCHAR(20) NOT NULL,
+    employee_id VARCHAR(20) NOT NULL,
+    order_date DATE NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'Новый',
+    assignment_date DATE,
+    planned_ready_date DATE,
+    priority VARCHAR(50) DEFAULT 'Стандартный',
+    close_date DATE,
+    payment_method VARCHAR(50),
+    customer_comment TEXT,
+    FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE,
+    FOREIGN KEY (employee_id) REFERENCES employees(employee_id) ON DELETE CASCADE
+);
+
+-- Таблица order_items (Состав заказа / позиции заказа)
+-- Составной первичный ключ (order_id + part_id)
+CREATE TABLE order_items (
+    order_id INT NOT NULL,
+    part_id VARCHAR(20) NOT NULL,
+    qty_sold INT NOT NULL,
+    sale_price DECIMAL(10,2) NOT NULL,
+    write_off_date DATE,
+    warehouse_comment TEXT,
+    PRIMARY KEY (order_id, part_id),
+    FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
+    FOREIGN KEY (part_id) REFERENCES spare_parts(part_id) ON DELETE CASCADE
+);
+
+-- 3. Изменение структуры таблиц
+-- Добавляем поле для комментария склада в таблицу заказов
+ALTER TABLE orders
+ADD COLUMN warehouse_note TEXT AFTER customer_comment;
+
+-- Изменяем тип поля priority (если нужно увеличить длину)
+ALTER TABLE orders
+MODIFY COLUMN priority VARCHAR(100);
+
+-- 4. Вставка записей
+
+-- Страны
+INSERT INTO countries (country_id, country_name) VALUES
+('643', 'Россия'),
+('156', 'Китай'),
+('276', 'Германия'),
+('392', 'Япония');
+
+-- Категории
+INSERT INTO categories (category_id, category_name) VALUES
+('01', 'Нагревательные элементы'),
+('02', 'Насосы'),
+('03', 'Электронные компоненты'),
+('04', 'Терморегуляция');
+
+-- Тип техники
+INSERT INTO appliance_types (type_id, type_name) VALUES
+('01', 'Стиральная машина'),
+('02', 'Холодильник'),
+('03', 'Посудомоечная машина'),
+('04', 'Электрическая плита');
+
+-- Названия запчастей
+INSERT INTO part_names (part_name_id, part_name, category_id) VALUES
+('0001', 'ТЭН', '01'),
+('0002', 'Насос сливной', '02'),
+('0003', 'Электронный модуль', '03'),
+('0004', 'Термостат', '04');
+
+-- Магазины (без manager сначала, добавим после сотрудников)
+INSERT INTO shops (shop_id, shop_name, address, open_date, status) VALUES
+('SH000001', 'Магазин «Центральный»', 'Пермь, ул. Ленина, 10', '2022-03-15', 'Работает'),
+('SH000002', 'Магазин «Закамский»', 'Пермь, ул. Маршала Рыбалко, 25', '2023-05-16', 'Работает'),
+('SH000003', 'Магазин «Складской»', 'Пермь, ул. Промышленная, 7', '2021-10-01', 'Работает');
+
+-- Сотрудники
+INSERT INTO employees (employee_id, full_name, position, shop_id, phone, email, hire_date, status) VALUES
+('EM000001', 'Иванов Иван Иванович', 'Управляющий магазином', 'SH000001', '+7 (912) 111-11-11', 'ivanov@example.ru', '2022-03-15', 'Работает'),
+('EM000002', 'Петров Пётр Сергеевич', 'Продавец-консультант', 'SH000001', '+7 (912) 222-22-22', 'petrov@example.ru', '2023-03-23', 'Работает'),
+('EM000003', 'Сидоров Алексей Олегович', 'Кладовщик', 'SH000003', '+7 (912) 333-33-33', 'sidorov@example.ru', '2021-10-01', 'Работает'),
+('EM000004', 'Кузнецова Анна Игоревна', 'Управляющий магазином', 'SH000002', '+7 (912) 444-44-44', 'kuznetsova@example.ru', '2023-05-16', 'Работает');
+
+-- Теперь обновляем manager в shops
+UPDATE shops SET manager = 'EM000001' WHERE shop_id = 'SH000001';
+UPDATE shops SET manager = 'EM000004' WHERE shop_id = 'SH000002';
+UPDATE shops SET manager = 'EM000003' WHERE shop_id = 'SH000003';
+
+-- Клиенты
+INSERT INTO customers (customer_id, customer_name, inn, contact_person, phone, email, address, status) VALUES
+('CU000001', 'ООО «БытСервис»', '5902123456', 'Смирнов Андрей Петрович', '+7 (342) 111-22-33', 'info@bytservice.ru', 'Пермь, ул. Мира, 18', 'Активный'),
+('CU000002', 'ИП Соколов Дмитрий', '590212345678', 'Соколов Дмитрий', '+7 (912) 555-55-55', 'sokolov@example.ru', 'Пермь, ул. Куйбышева, 30', 'Активный'),
+('CU000003', 'ООО «РемТех»', '5902987654', 'Васильева Мария Олеговна', '+7 (342) 222-33-44', 'office@remtech.ru', 'Пермь, ул. Лодыгина, 5', 'Активный');
+
+-- Запчасти
+INSERT INTO spare_parts (part_id, part_name_id, type_id, characteristic, qty_per_package, country_id, base_price) VALUES
+('ART-55432', '0001', '01', '2000 Вт, длина 17 см', 1, '643', 1500.00),
+('ART-55433', '0002', '01', 'Мощность drain 30 Вт', 1, '156', 1250.00),
+('ART-55434', '0003', '03', 'Модуль управления', 1, '276', 3800.00),
+('ART-55435', '0004', '02', 'Рабочий диапазон -5…+10 °C', 1, '392', 950.00),
+('ART-55436', '0001', '04', '1800 Вт, нержавеющая сталь', 1, '643', 1320.00);
+
+-- Заказы
+INSERT INTO orders (order_id, shop_id, customer_id, employee_id, order_date, status, assignment_date, planned_ready_date, priority, close_date, payment_method, customer_comment) VALUES
+(1001, 'SH000001', 'CU000001', 'EM000002', '2026-05-15', 'Выдан', '2026-05-15', '2026-05-16', 'Стандартный', '2026-05-16', 'Банковская карта', 'Заказ получен'),
+(1002, 'SH000002', 'CU000002', 'EM000004', '2026-06-21', 'В обработке', '2026-06-21', '2026-06-23', 'Срочный', NULL, NULL, 'Нужна срочная замена'),
+(1003, 'SH000001', 'CU000003', 'EM000002', '2026-07-27', 'Новый', NULL, NULL, 'Стандартный', NULL, NULL, NULL);
+
+-- Состав заказа (позиции)
+INSERT INTO order_items (order_id, part_id, qty_sold, sale_price, write_off_date, warehouse_comment) VALUES
+(1001, 'ART-55432', 2, 1450.00, '2026-05-16', 'Собрано в полном объёме'),
+(1001, 'ART-55433', 1, 1250.00, '2026-05-16', 'Выдано покупателю'),
+(1002, 'ART-55434', 1, 3800.00, NULL, 'Ожидает комплектации'),
+(1003, 'ART-55435', 1, 950.00, NULL, 'Заказ ещё не собран');
+
+-- 5. Обновление записей
+-- Обновляем базовую цену запчасти
+UPDATE spare_parts
+SET base_price = 1400.00
+WHERE part_id = 'ART-55432';
+
+-- Обновляем статус заказа
+UPDATE orders
+SET status = 'Закрыт', close_date = '2026-10-27'
+WHERE order_id = 1001;
+
+-- Обновляем контакт клиента
+UPDATE customers
+SET phone = '+7 (342) 111-22-99'
+WHERE customer_id = 'CU000001';
+
+-- 6. Удаление записей
+-- Удаляем позицию из состава заказа
+DELETE FROM order_items
+WHERE order_id = 1003 AND part_id = 'ART-55435';
+
+-- Удаляем заказ (каскадно удалится и из order_items)
+DELETE FROM orders
+WHERE order_id = 1002;
+
+-- 7. Создание пользователей и наделение их правами
+
+-- Пользователь для просмотра данных (менеджер по продажам) — только SELECT
+CREATE USER 'sales_manager'@'localhost' IDENTIFIED BY 'SalesPass2026!';
+GRANT SELECT ON AutoPartsStore.* TO 'sales_manager'@'localhost';
+
+-- Пользователь для работы с заказами (оператор) — SELECT, INSERT, UPDATE
+CREATE USER 'order_operator'@'localhost' IDENTIFIED BY 'OperatorPass2026!';
+GRANT SELECT, INSERT, UPDATE ON AutoPartsStore.orders TO 'order_operator'@'localhost';
+GRANT SELECT, INSERT, UPDATE ON AutoPartsStore.order_items TO 'order_operator'@'localhost';
+GRANT SELECT ON AutoPartsStore.spare_parts TO 'order_operator'@'localhost';
+GRANT SELECT ON AutoPartsStore.customers TO 'order_operator'@'localhost';
+GRANT SELECT ON AutoPartsStore.shops TO 'order_operator'@'localhost';
+GRANT SELECT ON AutoPartsStore.employees TO 'order_operator'@'localhost';
+
+-- Пользователь-администратор — полный доступ
+CREATE USER 'admin_user'@'localhost' IDENTIFIED BY 'AdminPass2026!';
+GRANT ALL PRIVILEGES ON AutoPartsStore.* TO 'admin_user'@'localhost';
+
+-- Применяем права
+FLUSH PRIVILEGES;
+
+-- 8. Выгрузка всех получившихся таблиц
+DESCRIBE countries;
+DESCRIBE categories;
+DESCRIBE appliance_types;
+DESCRIBE part_names;
+DESCRIBE shops;
+DESCRIBE employees;
+DESCRIBE customers;
+DESCRIBE spare_parts;
+DESCRIBE orders;
+DESCRIBE order_items;
+
+-- ЗАДАНИЕ 2--
+-- 1)        запросы на выборку (SELECT):where и order by
+SELECT 
+    sp.part_id AS 'Артикул',
+    pn.part_name AS 'Название запчасти',
+    c.country_name AS 'Страна производства',
+    sp.base_price AS 'Базовая цена'
+FROM spare_parts sp, part_names pn, countries c
+WHERE sp.part_name_id = pn.part_name_id
+  AND sp.country_id = c.country_id
+  AND c.country_id = '643'
+  AND sp.base_price > 1000
+ORDER BY sp.base_price DESC;
+--  показать заказы со статусом Выдан или Закрыт
+SELECT 
+    o.order_id AS 'Номер заказа',
+    o.order_date AS 'Дата заказа',
+    o.status AS 'Статус',
+    c.customer_name AS 'Клиент',
+    e.full_name AS 'Сотрудник'
+FROM orders o, customers c, employees e
+WHERE o.customer_id = c.customer_id
+  AND o.employee_id = e.employee_id
+  AND o.status IN ('Выдан', 'Закрыт')
+ORDER BY o.order_date DESC;
+-- 2   явное соединение таблиц  (INNER JOIN)
+SELECT 
+    sp.part_id AS 'Артикул',
+    pn.part_name AS 'Название',
+    cat.category_name AS 'Категория',
+    at.type_name AS 'Тип техники',
+    c.country_name AS 'Страна',
+    sp.characteristic AS 'Характеристики',
+    sp.base_price AS 'Цена'
+FROM spare_parts sp
+INNER JOIN part_names pn ON sp.part_name_id = pn.part_name_id
+INNER JOIN categories cat ON pn.category_id = cat.category_id
+INNER JOIN countries c ON sp.country_id = c.country_id
+ORDER BY cat.category_name, sp.base_price DESC;
+-- (LEFT JOIN)
+SELECT 
+    o.order_id AS '№ Заказа',
+    o.order_date AS 'Дата',
+    s.shop_name AS 'Магазин',
+    c.customer_name AS 'Клиент',
+    e.full_name AS 'Продавец',
+    o.status AS 'Статус',
+    o.priority AS 'Приоритет'
+FROM orders o
+INNER JOIN shops s ON o.shop_id = s.shop_id
+INNER JOIN customers c ON o.customer_id = c.customer_id
+INNER JOIN employees e ON o.employee_id = e.employee_id
+ORDER BY o.order_date DESC;
+-- 3  агрегирующие операции (COUNT, SUM)
+SELECT 
+    COUNT(DISTINCT o.order_id) AS 'Всего заказов',
+    COUNT(oi.order_id) AS 'Всего позиций в заказах',
+    SUM(oi.qty_sold) AS 'Общее количество проданных товаров',
+    SUM(oi.qty_sold * oi.sale_price) AS 'Общая сумма продаж'
+FROM orders o
+LEFT JOIN order_items oi ON o.order_id = oi.order_id;
+-- (AVG, MAX, MIN)
+SELECT 
+    COUNT(*) AS 'Всего наименований запчастей',
+    AVG(base_price) AS 'Средняя цена',
+    MAX(base_price) AS 'Максимальная цена',
+    MIN(base_price) AS 'Минимальная цена'
+FROM spare_parts;
+
+-- 4 группировку GROUP BY
+SELECT 
+    status AS 'Статус заказа',
+    COUNT(*) AS 'Количество заказов'
+FROM orders
+GROUP BY status
+ORDER BY COUNT(*) DESC;
+-- фильтрацию HAVING
+SELECT 
+    s.shop_id AS 'ID магазина',
+    s.shop_name AS 'Название магазина',
+    COUNT(DISTINCT o.order_id) AS 'Количество заказов',
+    SUM(oi.qty_sold * oi.sale_price) AS 'Общая сумма продаж'
+FROM shops s
+INNER JOIN orders o ON s.shop_id = o.shop_id
+INNER JOIN order_items oi ON o.order_id = oi.order_id
+GROUP BY s.shop_id, s.shop_name
+HAVING SUM(oi.qty_sold * oi.sale_price) > 3000
+ORDER BY SUM(oi.qty_sold * oi.sale_price) DESC; 
+
+
+-- 1. Вложенный запрос с оператором IN
+
+SELECT
+    sp.part_id AS 'Артикул',
+    pn.part_name AS 'Название запчасти',
+    sp.base_price AS 'Цена'
+FROM spare_parts sp
+INNER JOIN part_names pn
+    ON sp.part_name_id = pn.part_name_id
+WHERE sp.part_id IN (
+    SELECT oi.part_id
+    FROM order_items oi
+    INNER JOIN orders o
+        ON oi.order_id = o.order_id
+    WHERE o.status IN ('Закрыт', 'Выдан')
+);
+
+-- 2. Вложенный запрос с оператором ALL
+
+SELECT
+    sp.part_id AS 'Артикул',
+    pn.part_name AS 'Название запчасти',
+    sp.base_price AS 'Цена'
+FROM spare_parts sp
+INNER JOIN part_names pn
+    ON sp.part_name_id = pn.part_name_id
+WHERE sp.base_price > ALL (
+    SELECT sp2.base_price
+    FROM spare_parts sp2
+    INNER JOIN part_names pn2
+        ON sp2.part_name_id = pn2.part_name_id
+    INNER JOIN categories cat
+        ON pn2.category_id = cat.category_id
+    WHERE cat.category_name = 'Насосы'
+);
+
+
+--Функции управления потоком IF и CASE
+SELECT
+    sp.part_id AS 'Артикул',
+    pn.part_name AS 'Название',
+    sp.base_price AS 'Цена',
+
+    IF(
+        sp.base_price >= 2000,
+        'Дорогая запчасть',
+        'Бюджетная запчасть'
+    ) AS 'Ценовая категория'
+
+FROM spare_parts sp
+INNER JOIN part_names pn
+    ON sp.part_name_id = pn.part_name_id;
+
+--Определение состояния заказа через CASE.
+SELECT
+    order_id AS 'Номер заказа',
+    status AS 'Текущий статус',
+
+    CASE
+        WHEN status = 'Новый'
+            THEN 'Требуется обработка'
+
+        WHEN status = 'В обработке'
+            THEN 'Заказ собирается'
+
+        WHEN status = 'Выдан'
+            THEN 'Заказ выдан клиенту'
+
+        WHEN status = 'Закрыт'
+            THEN 'Заказ завершён'
+
+        ELSE 'Неизвестный статус'
+    END AS 'Описание состояния'
+
+FROM orders;
+
+--Создание представления CREATE VIEW
+-- Создание представления
+
+CREATE VIEW vw_order_details AS
+
+SELECT
+    o.order_id AS 'Номер заказа',
+    o.order_date AS 'Дата заказа',
+    s.shop_name AS 'Магазин',
+    c.customer_name AS 'Клиент',
+    e.full_name AS 'Сотрудник',
+    o.status AS 'Статус заказа',
+    pn.part_name AS 'Запчасть',
+    oi.qty_sold AS 'Количество',
+    oi.sale_price AS 'Цена продажи',
+    (oi.qty_sold * oi.sale_price) AS 'Сумма'
+
+FROM orders o
+
+INNER JOIN shops s
+    ON o.shop_id = s.shop_id
+
+INNER JOIN customers c
+    ON o.customer_id = c.customer_id
+
+INNER JOIN employees e
+    ON o.employee_id = e.employee_id
+
+LEFT JOIN order_items oi
+    ON o.order_id = oi.order_id
+
+LEFT JOIN spare_parts sp
+    ON oi.part_id = sp.part_id
+
+LEFT JOIN part_names pn
+    ON sp.part_name_id = pn.part_name_id;
+--Чтобы посмотреть
+    SELECT * FROM vw_order_details;
+    --только закрытые заказы
+    SELECT *
+FROM vw_order_details
+WHERE `Статус заказа` = 'Закрыт';
+
+
+--Временное представление WITH
+WITH shop_sales AS (
+
+    SELECT
+        s.shop_id,
+        s.shop_name,
+        COUNT(DISTINCT o.order_id) AS order_count,
+        SUM(oi.qty_sold * oi.sale_price) AS total_sales
+
+    FROM shops s
+
+    LEFT JOIN orders o
+        ON s.shop_id = o.shop_id
+
+    LEFT JOIN order_items oi
+        ON o.order_id = oi.order_id
+
+    GROUP BY s.shop_id, s.shop_name
+
+)
+
+SELECT
+    shop_name AS 'Магазин',
+    order_count AS 'Количество заказов',
+    COALESCE(total_sales, 0) AS 'Общая выручка'
+
+FROM shop_sales
+ORDER BY total_sales DESC;
+--Использование механизма транзакций START TRANSACTION
+-- Начало транзакции
+
+START TRANSACTION;
+
+-- Изменяем статус заказа
+
+UPDATE orders
+SET status = 'В обработке'
+WHERE order_id = 1003;
+
+-- Изменяем цену запчасти
+
+UPDATE spare_parts
+SET base_price = 1600.00
+WHERE part_id = 'ART-55432';
+
+-- Проверяем изменения
+
+SELECT *
+FROM orders
+WHERE order_id = 1003;
+
+SELECT *
+FROM spare_parts
+WHERE part_id = 'ART-55432';
+
+-- Отменяем изменения
+
+ROLLBACK;
+
+--спользование PREPARE, EXECUTE, DEALLOCATE
+-- 1. Подготавливаем SQL-запрос
+
+SET @sql = '
+    SELECT
+        sp.part_id AS "Артикул",
+        pn.part_name AS "Название запчасти",
+        c.country_name AS "Страна производства",
+        sp.base_price AS "Цена"
+
+    FROM spare_parts sp
+
+    INNER JOIN part_names pn
+        ON sp.part_name_id = pn.part_name_id
+
+    INNER JOIN countries c
+        ON sp.country_id = c.country_id
+
+    WHERE sp.country_id = ?
+      AND sp.base_price >= ?
+';
+
+-- 2. Подготавливаем запрос к выполнению
+
+PREPARE parts_query FROM @sql;
+
+-- 3. Передаём параметры
+
+SET @country = '643';
+SET @min_price = 1000;
+
+-- 4. Выполняем запрос
+
+EXECUTE parts_query USING @country, @min_price;
+
+-- 5. Освобождаем подготовленный запрос
+
+DEALLOCATE PREPARE parts_query;
